@@ -20,20 +20,20 @@ from model_utils import load_hf_lm_and_tokenizer, generate_completions
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data_names", default="gsm8k,math", type=str)
+    parser.add_argument("--data_names", default="math500", type=str)
     parser.add_argument("--data_dir", default="./data", type=str)
-    parser.add_argument("--model_name_or_path", default="gpt-4", type=str)
+    parser.add_argument("--model_name_or_path", default="unsloth/DeepSeek-R1-Distill-Qwen-1.5B", type=str)
     parser.add_argument("--output_dir", default="./output", type=str)
-    parser.add_argument("--prompt_type", default="tool-integrated", type=str)
+    parser.add_argument("--prompt_type", default="mathstral", type=str)
     parser.add_argument("--split", default="test", type=str)
     parser.add_argument("--num_test_sample", default=-1, type=int)  # -1 for full data
     parser.add_argument("--seed", default=0, type=int)
     parser.add_argument("--start", default=0, type=int)
     parser.add_argument("--end", default=-1, type=int)
-    parser.add_argument("--temperature", default=0, type=float)
+    parser.add_argument("--temperature", default=0.7, type=float)
     parser.add_argument("--n_sampling", default=1, type=int)
-    parser.add_argument("--top_p", default=1, type=float)
-    parser.add_argument("--max_tokens_per_call", default=2048, type=int)
+    parser.add_argument("--top_p", default=0.95, type=float)
+    parser.add_argument("--max_tokens_per_call", default=32768, type=int)
     parser.add_argument("--shuffle", action="store_true")
     parser.add_argument("--use_vllm", action="store_true")
     parser.add_argument("--save_outputs", action="store_true")
@@ -55,6 +55,8 @@ def parse_args():
     args.top_p = (
         1 if args.temperature == 0 else args.top_p
     )  # top_p must be 1 when using greedy sampling (vllm)
+    args.use_vllm = True
+    args.apply_chat_template = True
     return args
 
 

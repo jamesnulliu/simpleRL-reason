@@ -1,12 +1,8 @@
 ### Requirements
 You can install the required packages with the following command:
 ```bash
-cd latex2sympy
-pip install -e .
-cd ..
 pip install -r requirements.txt 
-pip install vllm==0.5.1 --no-build-isolation
-pip install transformers==4.42.3
+pip install -e . vllm==0.11.0 flash-attn==2.7.3 --no-build-isolation
 ```
 
 ### Evaluation

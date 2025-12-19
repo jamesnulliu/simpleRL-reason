@@ -17,6 +17,51 @@ from data_loader import load_data
 from python_executor import PythonExecutor
 from model_utils import load_hf_lm_and_tokenizer, generate_completions
 
+from pathlib import Path
+import pickle
+import sys
+
+def save_pickle(
+    data: object,
+    filedir: str | Path,
+    filestem: str | Path,
+    compress: bool = False,
+    filename: str | Path = None,
+) -> None:
+    """
+    Save an object to a pickle file, with optional chunking for lists.
+    Skips saving if data or filestem is None.
+
+    Note
+    ----
+    - Use `save_parquet` if possible for less disk space and faster I/O.
+    - For large lists that cannot be saved to Parquet, consider using
+      `chunk_list_and_save_to_pickles`.
+    """
+    if (
+        data is None
+        or filedir is None
+        or (filestem is None and filename is None)
+    ):
+        return
+
+    filedir = Path(filedir)
+    filedir.mkdir(parents=True, exist_ok=True)
+
+    if filename is not None:
+        compress = filename.suffix == ".gz"
+        filestem = filename.name.removesuffix("".join(filename.suffixes))
+
+    base_filepath = filedir / filestem
+    sys.setrecursionlimit(int(os.environ.get("PYTHON_RECURSION_LIMIT", 10000)))
+    if compress:
+        filepath = Path(str(base_filepath) + ".pkl.gz")
+        with gzip.open(filepath, "wb") as f:
+            pickle.dump(data, f)
+    else:
+        filepath = Path(str(base_filepath) + ".pkl")
+        with open(filepath, "wb") as f:
+            pickle.dump(data, f)
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -281,6 +326,13 @@ def main(llm, tokenizer, data_name, args):
         # get all outputs
         prompts = [item[1] for item in current_prompts]
         if args.use_vllm:
+            # [DEBUG] >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+            save_pickle(
+                data=prompts,
+                filedir="./outputs",
+                filestem="debug_math_eval_inputs",
+            )
+            # [DEBUG] <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
             outputs = llm.generate(
                 prompts,
                 SamplingParams(

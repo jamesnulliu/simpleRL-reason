@@ -21,53 +21,16 @@ from pathlib import Path
 import pickle
 import sys
 
-def save_pickle(
-    data: object,
-    filedir: str | Path,
-    filestem: str | Path,
-    compress: bool = False,
-    filename: str | Path = None,
-) -> None:
-    """
-    Save an object to a pickle file, with optional chunking for lists.
-    Skips saving if data or filestem is None.
-
-    Note
-    ----
-    - Use `save_parquet` if possible for less disk space and faster I/O.
-    - For large lists that cannot be saved to Parquet, consider using
-      `chunk_list_and_save_to_pickles`.
-    """
-    if (
-        data is None
-        or filedir is None
-        or (filestem is None and filename is None)
-    ):
-        return
-
-    filedir = Path(filedir)
-    filedir.mkdir(parents=True, exist_ok=True)
-
-    if filename is not None:
-        compress = filename.suffix == ".gz"
-        filestem = filename.name.removesuffix("".join(filename.suffixes))
-
-    base_filepath = filedir / filestem
-    sys.setrecursionlimit(int(os.environ.get("PYTHON_RECURSION_LIMIT", 10000)))
-    if compress:
-        filepath = Path(str(base_filepath) + ".pkl.gz")
-        with gzip.open(filepath, "wb") as f:
-            pickle.dump(data, f)
-    else:
-        filepath = Path(str(base_filepath) + ".pkl")
-        with open(filepath, "wb") as f:
-            pickle.dump(data, f)
 
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_names", default="math500", type=str)
     parser.add_argument("--data_dir", default="./data", type=str)
-    parser.add_argument("--model_name_or_path", default="unsloth/DeepSeek-R1-Distill-Qwen-1.5B", type=str)
+    parser.add_argument(
+        "--model_name_or_path",
+        default="unsloth/DeepSeek-R1-Distill-Qwen-1.5B",
+        type=str,
+    )
     parser.add_argument("--output_dir", default="./output", type=str)
     parser.add_argument("--prompt_type", default="mathstral", type=str)
     parser.add_argument("--split", default="test", type=str)
@@ -128,7 +91,9 @@ def prepare_data(data_name, args):
     output_dir = args.output_dir
     # if not os.path.exists(output_dir):
     #     output_dir = f"outputs/{output_dir}"
-    out_file = f"{output_dir}/{data_name}/{out_file_prefix}_s{args.start}_e{args.end}.jsonl"
+    out_file = (
+        f"{output_dir}/{data_name}/{out_file_prefix}_s{args.start}_e{args.end}.jsonl"
+    )
     os.makedirs(f"{output_dir}/{data_name}", exist_ok=True)
 
     # load all processed samples
@@ -140,9 +105,7 @@ def prepare_data(data_name, args):
             if f.endswith(".jsonl") and f.startswith(out_file_prefix)
         ]
         for f in processed_files:
-            processed_samples.extend(
-                list(load_jsonl(f"{output_dir}/{data_name}/{f}"))
-            )
+            processed_samples.extend(list(load_jsonl(f"{output_dir}/{data_name}/{f}")))
 
     # dedepulicate
     processed_samples = {sample["idx"]: sample for sample in processed_samples}
@@ -154,27 +117,27 @@ def prepare_data(data_name, args):
 
 def setup(args):
     # load model
-    
+
     available_gpus = os.environ["CUDA_VISIBLE_DEVICES"].split(",")
     data_list = args.data_names.split(",")
     need_eval_data_list = []
     if not args.overwrite:
         for data_name in data_list:
             out_prefix = f"{args.split}_{args.prompt_type}_{args.num_test_sample}_seed{args.seed}_t{args.temperature}"
-            out_file =  f"{args.output_dir}/{data_name}/{out_prefix}_s{args.start}_e{args.end}.jsonl"
+            out_file = f"{args.output_dir}/{data_name}/{out_prefix}_s{args.start}_e{args.end}.jsonl"
             out_metric_json = out_file.replace(".jsonl", f"_metrics.json")
-            
+
             if os.path.exists(out_metric_json):
                 print(f"Skipping {data_name} because {out_metric_json} already exists.")
                 continue
             else:
                 need_eval_data_list.append(data_name)
-    
+
         if len(need_eval_data_list) == 0:
             print("All datasets already evaluated. Exiting.")
             exit(0)
         data_list = need_eval_data_list
-    
+
     if args.use_vllm:
         llm = LLM(
             model=args.model_name_or_path,
@@ -326,13 +289,6 @@ def main(llm, tokenizer, data_name, args):
         # get all outputs
         prompts = [item[1] for item in current_prompts]
         if args.use_vllm:
-            # [DEBUG] >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-            save_pickle(
-                data=prompts,
-                filedir="./outputs",
-                filestem="debug_math_eval_inputs",
-            )
-            # [DEBUG] <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
             outputs = llm.generate(
                 prompts,
                 SamplingParams(
@@ -349,9 +305,9 @@ def main(llm, tokenizer, data_name, args):
                 ),
             )
 
-            outputs = sorted(
-                outputs, key=lambda x: int(x.request_id)
-            )  # sort outputs by request_id
+            # outputs = sorted(
+            #     outputs, key=lambda x: int(x.request_id)
+            # )  # sort outputs by request_id
             outputs = [output.outputs[0].text for output in outputs]
         else:
             outputs = generate_completions(
@@ -378,7 +334,7 @@ def main(llm, tokenizer, data_name, args):
                 remain_codes.append(output)
             elif args.prompt_type == "cot":
                 end_prompts.append((i, query))
-            # elif "boxed" not in output and output.endswith("```"): # disable code execution 
+            # elif "boxed" not in output and output.endswith("```"): # disable code execution
             #     program = extract_program(query)
             #     remain_prompts.append((i, query))
             #     remain_codes.append(program)
@@ -469,9 +425,7 @@ def main(llm, tokenizer, data_name, args):
         f"{int(time_use // 60)}:{int(time_use % 60):02d}"
     )
 
-    with open(
-        out_file.replace(".jsonl", f"_metrics.json"), "w"
-    ) as f:
+    with open(out_file.replace(".jsonl", f"_metrics.json"), "w") as f:
         json.dump(result_json, f, indent=4)
     return result_json
 
